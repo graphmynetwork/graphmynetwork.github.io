@@ -1,0 +1,2138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Interactive relationship mapping and visualisation tool.">
+<meta property="og:title" content="GraphNet">
+<meta property="og:description" content="Interactive relationship mapping">
+<meta property="og:image" content="https://g.raphnet.workers.dev/preview_square.png">
+<meta property="og:url" content="https://g.raphnet.workers.dev">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="GraphNet">
+<meta name="twitter:description" content="Interactive relationship mapping and visualisation tool.">
+<meta name="twitter:image" content="https://g.raphnet.workers.dev/preview_square.png">
+<link rel="icon" href="icon.png">
+<title>GraphNet &amp; Bridges</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  :root{
+    --bg-deep:#0B1120;
+    --bg-panel:#121A2C;
+    --bg-panel-2:#0F1729;
+    --border:#232F49;
+    --text-primary:#EDEFF7;
+    --text-muted:#8993AC;
+    --text-faint:#5C6580;
+    --accent:#F2C572;
+    --accent-soft:rgba(242,197,114,0.14);
+    --danger:#E8795A;
+    --good:#8FD17A;
+    --radius-lg:18px;
+    --radius-md:12px;
+    --radius-sm:8px;
+    --font-display:'Space Grotesk', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body {
+    background:
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.35) 0, transparent 100%),
+      radial-gradient(1px 1px at 70% 65%, rgba(255,255,255,0.25) 0, transparent 100%),
+      radial-gradient(1.5px 1.5px at 42% 82%, rgba(255,255,255,0.3) 0, transparent 100%),
+      radial-gradient(1px 1px at 85% 18%, rgba(255,255,255,0.25) 0, transparent 100%),
+      radial-gradient(1px 1px at 58% 12%, rgba(255,255,255,0.2) 0, transparent 100%),
+      radial-gradient(1px 1px at 12% 70%, rgba(255,255,255,0.2) 0, transparent 100%),
+      radial-gradient(ellipse at top, #141d33 0%, var(--bg-deep) 60%);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    min-height:100vh;
+    padding: 32px 20px 60px;
+  }
+  .app { max-width: 1040px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+
+  header.top { display:flex; flex-direction:row; justify-content:space-between; align-items:flex-start; gap:18px; margin-bottom:4px; flex-wrap:wrap; }
+  .top-main { display:flex; flex-direction:column; gap:6px; min-width:min(100%,260px); flex:1 1 320px; }
+  .eyebrow { font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-faint); }
+  h1 { font-family:var(--font-display); font-weight:600; font-size:28px; margin:0; letter-spacing:-0.01em; }
+  .stats-row { display:flex; gap:18px; font-family:var(--font-mono); font-size:12.5px; color:var(--text-muted); flex-wrap:wrap; }
+  .stats-row b { color: var(--text-primary); font-weight:500; }
+
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+  }
+  .panel h2 { font-family:var(--font-display); font-size:14px; font-weight:600; letter-spacing:0.02em; margin:0 0 4px; color:var(--text-primary); }
+  .panel .hint { font-size:12.5px; color:var(--text-muted); margin:0 0 14px; line-height:1.5; }
+
+  .staging-preview { min-height:44px; display:flex; align-items:center; margin-bottom:14px; }
+  .staging-empty { font-size:12.5px; color:var(--text-faint); font-style:italic; }
+
+  .chip-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .chip {
+    font-family: var(--font-body); font-size:13px; font-weight:500;
+    padding:6px 12px 6px 10px; border-radius:999px; border:1px solid var(--border);
+    background: var(--bg-panel-2); color:var(--text-primary);
+    cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+    transition: border-color .15s ease, background .15s ease, transform .1s ease;
+  }
+  .chip:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .chip .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .chip .n { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); }
+  .chip.staged { background: var(--accent-soft); border-color: var(--accent); }
+  .chip.staged .n { color: var(--accent); }
+
+  .input-row { display:flex; gap:10px; margin-top:4px; flex-wrap:wrap; }
+  input[type="text"] {
+    flex:1; min-width:200px; background:var(--bg-panel-2); border:1px solid var(--border); border-radius: var(--radius-sm);
+    color:var(--text-primary); font-family:var(--font-body); font-size:14px; padding:10px 14px;
+  }
+  input[type="text"]::placeholder { color: var(--text-faint); }
+  input[type="text"]:focus-visible, button:focus-visible, .chip:focus-visible {
+    outline: 2px solid var(--accent); outline-offset:2px;
+  }
+
+  button {
+    font-family: var(--font-body); font-size:13.5px; font-weight:600; cursor:pointer;
+    border-radius: var(--radius-sm); border:1px solid var(--border); padding:10px 16px;
+    background: var(--bg-panel-2); color:var(--text-primary); transition: all .15s ease;
+    white-space:nowrap;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color:#1A1305; border-color:var(--accent); }
+  button.primary:hover { filter: brightness(1.08); }
+  button.primary:disabled { opacity:0.4; cursor:not-allowed; filter:none; }
+  button.ghost { background:transparent; }
+  button.danger-confirm { background: var(--danger); color:#2A0D05; border-color:var(--danger); }
+
+  .link-btn { background:none; border:none; color:var(--text-muted); font-size:12.5px; text-decoration:underline; cursor:pointer; padding:4px 0; }
+  .link-btn:hover { color:var(--accent); }
+
+  .divider-label { font-family:var(--font-mono); font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.1em; margin: 16px 0 8px; }
+
+  .graph-panel { padding:0; overflow:hidden; position:relative; }
+  .graph-panel .graph-head { display:flex; justify-content:space-between; align-items:center; padding:18px 22px 0; }
+  #graphHost { width:100%; height:600px; position:relative; }
+  #graphHost svg { width:100%; height:100%; display:block; cursor:grab; }
+  #graphHost svg:active { cursor:grabbing; }
+  .empty-state {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:6px; text-align:center; padding:40px; color:var(--text-muted);
+  }
+  .empty-state strong { font-family:var(--font-display); color:var(--text-primary); font-size:16px; font-weight:600; }
+  .empty-state span { font-size:13px; max-width:340px; }
+
+  .tooltip {
+    position:absolute; pointer-events:none; background:#0A0F1C; border:1px solid var(--border);
+    border-radius: var(--radius-sm); padding:9px 12px; font-size:12.5px; font-family: var(--font-body);
+    color:var(--text-primary); opacity:0; transform:translate(-50%,-120%); transition:opacity .1s ease;
+    white-space:normal; max-width:230px; line-height:1.55; z-index:10; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  }
+  .tooltip .count { font-family:var(--font-mono); color:var(--accent); }
+  .tooltip .bridge-flag { color:var(--accent); font-weight:600; }
+
+  .legend { display:flex; gap:18px; flex-wrap:wrap; padding:12px 22px; font-size:12px; color:var(--text-muted); border-top:1px solid var(--border); }
+  .legend-item { display:flex; align-items:center; gap:7px; }
+  .legend-swatch { width:12px; height:12px; border-radius:50%; background:#7FB4E8; flex-shrink:0; }
+  .legend-ring { width:12px; height:12px; border-radius:50%; border:2.5px solid var(--accent); background:transparent; flex-shrink:0; }
+  .legend-size { display:flex; align-items:center; gap:3px; }
+  .legend-size span { border-radius:50%; background:var(--text-faint); display:inline-block; }
+
+  .graph-footer { display:flex; justify-content:space-between; align-items:center; padding:12px 22px; border-top:1px solid var(--border); gap:12px; flex-wrap:wrap; }
+  .graph-footer .hint { font-size:12px; color:var(--text-faint); margin:0; }
+
+  .node-label { font-family:var(--font-body); font-weight:600; fill:#14192C; pointer-events:none; user-select:none; }
+  .community-hull { pointer-events:none; }
+
+  .analysis-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; }
+  .analysis-col .divider-label { margin-top:0; }
+  .rank-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .rank-list li { padding:8px 10px; background:var(--bg-panel-2); border:1px solid var(--border); border-radius:var(--radius-sm); }
+  .rank-row { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .rank-name { font-weight:600; font-size:13px; color:var(--text-primary); }
+  .rank-meta { font-family:var(--font-mono); font-size:11px; color:var(--accent); white-space:nowrap; }
+  .rank-sub { font-size:11px; color:var(--text-faint); margin-top:3px; line-height:1.4; }
+  .empty-note { font-size:12.5px; color:var(--text-faint); font-style:italic; }
+
+  textarea {
+    width:100%; background:var(--bg-panel-2); border:1px solid var(--border); border-radius: var(--radius-sm);
+    color:var(--text-primary); font-family:var(--font-mono); font-size:11.5px; padding:10px; resize:vertical;
+  }
+  .status-msg { font-size:12.5px; margin:10px 0 0; }
+  .status-msg.warn { color:var(--danger); }
+  .status-msg.ok { color:var(--good); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition:none !important; }
+  }
+  @media (max-width:780px) {
+    .analysis-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width:640px) {
+    h1 { font-size:22px; }
+    .panel { padding:16px; }
+    #graphHost { height:460px; }
+  }
+
+  /* ============ top-right action cluster ============ */
+  .top-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+  .act-btn {
+    font-family:var(--font-body); font-size:13px; font-weight:600; cursor:pointer;
+    border-radius:var(--radius-sm); border:1px solid var(--border); padding:9px 13px;
+    background:var(--bg-panel); color:var(--text-primary); transition:border-color .15s ease, background .15s ease, transform .1s ease, opacity .15s ease;
+    display:inline-flex; align-items:center; gap:7px; white-space:nowrap;
+  }
+  .act-btn svg { width:15px; height:15px; flex-shrink:0; }
+  .act-btn:hover:not(:disabled) { border-color:var(--accent); transform:translateY(-1px); }
+  .act-btn:disabled { opacity:0.4; cursor:not-allowed; }
+  .act-btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .act-btn.flash { border-color:var(--good); color:var(--good); }
+
+  /* ============ save switcher ============ */
+  .slot-switcher { position:relative; }
+  .slot-current {
+    font-family:var(--font-body); font-size:13px; font-weight:600; cursor:pointer;
+    border-radius:var(--radius-sm); border:1px solid var(--border); padding:9px 12px;
+    background:var(--bg-panel-2); color:var(--text-primary); transition:border-color .15s ease;
+    display:inline-flex; align-items:center; gap:8px; max-width:220px;
+  }
+  .slot-current:hover { border-color:var(--accent); }
+  .slot-current:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .slot-current .slot-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:130px; }
+  .slot-current .slot-tag { font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-faint); }
+  .slot-current .chev { width:12px; height:12px; opacity:0.6; transition:transform .18s ease; }
+  .slot-switcher.open .slot-current .chev { transform:rotate(180deg); }
+  .slot-menu {
+    position:absolute; top:calc(100% + 8px); right:0; z-index:40; width:290px; max-width:calc(100vw - 40px);
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius-md);
+    box-shadow:0 18px 44px rgba(0,0,0,0.5); padding:8px; animation:pop .14s ease;
+  }
+  @keyframes pop { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+  .slot-menu-head { font-family:var(--font-mono); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-faint); padding:6px 8px 8px; }
+  .slot-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:3px; max-height:280px; overflow-y:auto; }
+  .slot-row { display:flex; align-items:center; gap:6px; border-radius:var(--radius-sm); padding:2px; }
+  .slot-row:hover { background:var(--bg-panel-2); }
+  .slot-row.active { background:var(--accent-soft); }
+  .slot-pick { flex:1; min-width:0; text-align:left; background:none; border:none; color:var(--text-primary); font-family:var(--font-body); font-size:13px; font-weight:500; cursor:pointer; padding:8px 8px; border-radius:var(--radius-sm); display:flex; flex-direction:column; gap:2px; }
+  .slot-pick .sp-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .slot-pick .sp-meta { font-family:var(--font-mono); font-size:10.5px; color:var(--text-faint); }
+  .slot-row.active .slot-pick .sp-name { color:var(--accent); }
+  .slot-icon-btn { background:none; border:none; cursor:pointer; color:var(--text-faint); padding:6px; border-radius:6px; display:inline-flex; transition:color .15s ease, background .15s ease; }
+  .slot-icon-btn:hover { color:var(--text-primary); background:var(--bg-deep); }
+  .slot-icon-btn.danger:hover { color:var(--danger); }
+  .slot-icon-btn svg { width:14px; height:14px; }
+  .slot-rename-input { flex:1; min-width:0; background:var(--bg-panel-2); border:1px solid var(--accent); border-radius:var(--radius-sm); color:var(--text-primary); font-family:var(--font-body); font-size:13px; padding:7px 9px; }
+  .slot-new { width:100%; margin-top:6px; justify-content:center; background:var(--bg-panel-2); border:1px dashed var(--border); color:var(--text-muted); font-weight:600; }
+  .slot-new:hover { border-color:var(--accent); color:var(--accent); }
+  .slot-del-confirm { display:flex; align-items:center; gap:6px; padding:2px 4px; }
+  .slot-del-confirm .sdc-text { font-size:12px; color:var(--danger); flex:1; }
+  .slot-del-confirm button { padding:6px 10px; font-size:12px; }
+
+  /* ============ delete-person cross on saved-name chips ============ */
+  .chip.deletable { padding-right:6px; }
+  .chip .chip-del {
+    width:17px; height:17px; border-radius:50%; border:none; margin-left:2px; padding:0;
+    display:none; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+    background:var(--bg-deep); color:var(--text-faint); line-height:1; transition:background .12s ease, color .12s ease;
+  }
+  .chip .chip-del svg { width:9px; height:9px; }
+  .chip:hover .chip-del { display:inline-flex; }
+  .chip .chip-del:hover { background:var(--danger); color:#2A0D05; }
+  @media (hover:none) { .chip .chip-del { display:inline-flex; } }
+  .chip.confirming { background:rgba(232,121,90,0.16); border-color:var(--danger); cursor:default; }
+  .chip.confirming .confirm-text { font-size:12.5px; color:var(--text-primary); }
+  .chip.confirming .confirm-yes, .chip.confirming .confirm-no {
+    width:20px; height:20px; border-radius:50%; border:none; padding:0; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; line-height:1;
+  }
+  .chip.confirming .confirm-yes svg, .chip.confirming .confirm-no svg { width:11px; height:11px; }
+  .chip.confirming .confirm-yes { background:var(--danger); color:#2A0D05; }
+  .chip.confirming .confirm-no { background:var(--bg-deep); color:var(--text-muted); }
+  .chip.confirming .confirm-no:hover { color:var(--text-primary); }
+
+  /* ============ detection controls (granularity + hub toggle) ============ */
+  .detect-controls { display:flex; gap:20px; align-items:flex-end; flex-wrap:wrap; margin:2px 0 16px; padding:14px 16px; background:var(--bg-panel-2); border:1px solid var(--border); border-radius:var(--radius-md); }
+  .control-block { display:flex; flex-direction:column; gap:8px; }
+  .control-block.grow { flex:1 1 240px; min-width:200px; }
+  .control-label { font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-faint); display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
+  .control-label .val { color:var(--accent); font-size:11px; }
+  .slider-scale { display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-faint); margin-top:-2px; }
+  input[type="range"] {
+    -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:999px;
+    background:var(--border); outline:none; cursor:pointer; margin:6px 0;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:50%;
+    background:var(--accent); border:3px solid var(--bg-panel-2); box-shadow:0 0 0 1px var(--accent); cursor:pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width:15px; height:15px; border-radius:50%; background:var(--accent); border:3px solid var(--bg-panel-2); box-shadow:0 0 0 1px var(--accent); cursor:pointer;
+  }
+  input[type="range"]:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+  .toggle-btn {
+    display:inline-flex; align-items:center; gap:9px; background:var(--bg-panel); border:1px solid var(--border);
+    border-radius:var(--radius-sm); padding:9px 13px; cursor:pointer; color:var(--text-muted);
+    font-family:var(--font-body); font-size:12.5px; font-weight:600; transition:all .15s ease; text-align:left;
+  }
+  .toggle-btn:hover { border-color:var(--accent); }
+  .toggle-btn .switch { width:32px; height:18px; border-radius:999px; background:var(--border); position:relative; flex-shrink:0; transition:background .18s ease; }
+  .toggle-btn .switch::after { content:''; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:var(--text-muted); transition:transform .18s ease, background .18s ease; }
+  .toggle-btn[aria-pressed="true"] { color:var(--text-primary); border-color:var(--accent); }
+  .toggle-btn[aria-pressed="true"] .switch { background:var(--accent); }
+  .toggle-btn[aria-pressed="true"] .switch::after { transform:translateX(14px); background:#1A1305; }
+  .toggle-btn .tg-labels { display:flex; flex-direction:column; gap:1px; }
+  .toggle-btn .tg-sub { font-size:10.5px; font-weight:500; color:var(--text-faint); }
+
+  /* ============ undo ============ */
+  .log-actions { display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
+  .undo-btn { display:inline-flex; align-items:center; gap:7px; }
+  .undo-btn svg { width:14px; height:14px; }
+  .undo-btn:disabled { opacity:0.4; cursor:not-allowed; }
+  .undo-btn:disabled:hover { border-color:var(--border); }
+
+  /* ============ toast ============ */
+  .toast-host { position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:80; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none; width:max-content; max-width:calc(100vw - 32px); }
+  .toast {
+    background:#0A0F1C; border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:11px 16px; font-size:13px; color:var(--text-primary); box-shadow:0 10px 30px rgba(0,0,0,0.5);
+    display:flex; align-items:center; gap:9px; animation:toastIn .2s ease; pointer-events:auto;
+  }
+  .toast.ok { border-color:rgba(143,209,122,0.5); }
+  .toast.warn { border-color:rgba(232,121,90,0.5); }
+  .toast svg { width:15px; height:15px; flex-shrink:0; }
+  .toast.ok svg { color:var(--good); } .toast.warn svg { color:var(--danger); }
+  @keyframes toastIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .toast.leaving { opacity:0; transform:translateY(8px); transition:opacity .25s ease, transform .25s ease; }
+
+  /* ============ share fallback popover ============ */
+  .share-fallback { margin-top:14px; padding:14px 16px; background:var(--bg-panel-2); border:1px solid var(--border); border-radius:var(--radius-md); }
+  .share-fallback p { font-size:12.5px; color:var(--text-muted); margin:0 0 8px; }
+  .share-fallback .sf-row { display:flex; gap:8px; }
+  .share-fallback input { flex:1; min-width:0; background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-primary); font-family:var(--font-mono); font-size:12px; padding:9px 11px; }
+
+  @media (max-width:640px) {
+    header.top { flex-direction:column; }
+    .top-actions { width:100%; justify-content:flex-start; }
+    .slot-switcher { order:-1; width:100%; }
+    .slot-current { width:100%; max-width:none; justify-content:space-between; }
+    .slot-current .slot-name { max-width:none; }
+    .act-btn { flex:1 1 auto; justify-content:center; }
+    .detect-controls { gap:16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="top-main">
+      <span class="eyebrow">Connection Map · Groups &amp; Bridges</span>
+      <h1>Let's Graph Your Network</h1>
+      <div class="stats-row">
+        <span><b id="statNames">0</b> names</span>
+        <span><b id="statLinks">0</b> connections</span>
+        <span><b id="statGroups">0</b> groups logged</span>
+        <span><b id="statCommunities">0</b> groups detected</span>
+      </div>
+      <p class="hint" id="storageStatus" style="margin:2px 0 0;"></p>
+    </div>
+
+    <div class="top-actions">
+      <div class="slot-switcher" id="slotSwitcher">
+        <button class="slot-current" id="slotBtn" type="button" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;opacity:0.75"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+          <span style="display:flex;flex-direction:column;line-height:1.2;min-width:0;">
+            <span class="slot-tag">Network</span>
+            <span class="slot-name" id="slotName">My network</span>
+          </span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="slot-menu" id="slotMenu" hidden role="menu">
+          <div class="slot-menu-head">Saved networks</div>
+          <ul class="slot-list" id="slotList"></ul>
+          <button class="act-btn slot-new" id="newSlotBtn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            New save
+          </button>
+        </div>
+      </div>
+
+      <button class="act-btn" id="saveImgBtn" type="button" title="Download the network as a PNG">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+        Save image
+      </button>
+      <button class="act-btn" id="saveNetBtn" type="button" title="Save this network to the current slot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+        Save network
+      </button>
+      <button class="act-btn" id="shareBtn" type="button" title="Share this network as a link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
+        Share
+      </button>
+    </div>
+  </header>
+
+  <div class="share-fallback" id="shareFallback" style="display:none;">
+    <p>Copy this link to share your network — anyone who opens it gets a copy loaded into a new save.</p>
+    <div class="sf-row">
+      <input type="text" id="shareLinkInput" readonly>
+      <button class="act-btn" id="copyShareBtn" type="button">Copy</button>
+      <button class="act-btn" id="closeShareBtn" type="button" aria-label="Dismiss">Done</button>
+    </div>
+  </div>
+
+  <section class="panel" id="inputPanel">
+    <h2>Log a group</h2>
+    <p class="hint">Add the names that appeared in each group - each pair in the group gets one connection point.</p>
+
+    <div class="staging-preview" id="stagingPreview">
+      <span class="staging-empty">No names added yet - click a saved name below or type a new one.</span>
+    </div>
+
+    <div class="input-row">
+      <input type="text" id="nameInput" placeholder="Type a name (or several, separated by commas) and press Enter…" autocomplete="off">
+      <button class="primary" id="submitBtn" disabled type="button">Save Group</button>
+    </div>
+
+    <div class="log-actions">
+      <button class="ghost undo-btn" id="undoBtn" type="button" disabled title="Undo the most recently logged group">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg>
+        Undo last group
+      </button>
+    </div>
+
+    <div class="divider-label" id="existingLabel" style="display:none;">Saved names — hover a name to remove it, or click to add to a group</div>
+    <div class="chip-row" id="existingNames"></div>
+  </section>
+
+  <section class="panel graph-panel">
+    <div class="graph-head">
+      <h2>Network</h2>
+    </div>
+    <div id="graphHost">
+      <div class="empty-state" id="emptyState">
+        <strong>Loading…</strong>
+        <span>Checking for your saved network.</span>
+      </div>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-swatch"></span> Color = detected group </span>
+      <span class="legend-item"><span class="legend-ring"></span> Ring = bridge between groups </span>
+      <span class="legend-item legend-size"><span style="width:6px;height:6px;"></span><span style="width:12px;height:12px;"></span> Size = groups appeared in</span>
+    </div>
+    <div class="graph-footer">
+      <p class="hint">DRAG A BUBBLE TO REPOSITION · SCROLL TO ZOOM · HOVER FOR DETAIL</p>
+      <button class="ghost" id="resetBtn" type="button">Reset Data</button>
+    </div>
+  </section>
+
+  <section class="panel" id="analysisPanel">
+    <h2>Analysis</h2>
+    <p class="hint" id="analysisSummary">Recomputed automatically from your current data.</p>
+
+    <div class="detect-controls">
+      <div class="control-block grow">
+        <label class="control-label" for="granularitySlider">
+          <span>Group detection</span>
+          <span class="val" id="granularityVal">Balanced</span>
+        </label>
+        <input type="range" id="granularitySlider" min="0.5" max="2.5" step="0.1" value="1">
+        <div class="slider-scale"><span>Fewer, broader groups</span><span>More, tighter groups</span></div>
+      </div>
+      <div class="control-block">
+        <span class="control-label" style="visibility:hidden;">.</span>
+        <button class="toggle-btn" id="hubToggle" type="button" aria-pressed="false">
+          <span class="switch" aria-hidden="true"></span>
+          <span class="tg-labels">
+            <span>Detach the busiest name</span>
+            <span class="tg-sub" id="hubToggleSub">Keep every name grouped</span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div class="analysis-grid">
+      <div class="analysis-col">
+        <div class="divider-label">Groups detected</div>
+        <ol class="rank-list" id="communityList"></ol>
+      </div>
+      <div class="analysis-col">
+        <div class="divider-label">Most connected people</div>
+        <ol class="rank-list" id="degreeList"></ol>
+      </div>
+      <div class="analysis-col">
+        <div class="divider-label">Bridge people</div>
+        <ol class="rank-list" id="betweennessList"></ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="dataPanel">
+    <h2>Backup &amp; transfer</h2>
+    <p class="hint">Export your data to a JSON file — useful as a backup, or to move your data into another copy of this tool.</p>
+    <div class="input-row">
+      <button type="button" id="exportBtn">Export data</button>
+      <button type="button" id="importBtn">Import data</button>
+      <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+    </div>
+    <div id="exportOutputWrap" style="display:none; margin-top:12px;">
+      <p class="hint">If a download didn't start automatically, copy the text below and save it yourself as a .json file.</p>
+      <textarea id="exportOutput" rows="4" readonly></textarea>
+    </div>
+    <button type="button" class="link-btn" id="showPasteBtn">…or paste exported JSON instead</button>
+    <div id="importPasteWrap" style="display:none; margin-top:8px;">
+      <textarea id="importPasteArea" rows="4" placeholder="Paste exported JSON here…"></textarea>
+      <div class="input-row" style="margin-top:8px;">
+        <button type="button" id="importPasteBtn">Load pasted data</button>
+      </div>
+    </div>
+    <p class="status-msg" id="importStatus"></p>
+  </section>
+</div>
+
+<div class="toast-host" id="toastHost" aria-live="polite"></div>
+
+<script>
+(function(){
+  const LEGACY_KEY = 'connection-map-data';        // pre-slots single store (kept for migration + import)
+  const INDEX_KEY  = 'connection-map-index';        // { activeId, slots:[{id,name,updatedAt}] }
+  const SLOT_PREFIX = 'connection-map-slot-';       // per-slot payload
+  const IDENTITY_PALETTE = ['#F2C572','#E8795A','#5FBFB3','#B79FE8','#E88FA2','#7FB4E8','#8FD17A','#C98FBF'];
+  const COMMUNITY_PALETTE = ['#F2C572','#E8795A','#5FBFB3','#B79FE8','#E88FA2','#7FB4E8','#8FD17A','#C98FBF','#E0C46C','#D98868','#6FCFC0','#9FA8E8','#E8A5B0','#A8C97F'];
+  const HUB_COLOR = '#6B7690';                      // colour for a detached "busiest name" (no group)
+  const BRIDGE_TOP_FRACTION = 0.2;
+  const BRIDGE_MAX_COUNT = 12;
+  const DEFAULT_GRANULARITY = 1;
+  const GRAN_MIN = 0.5, GRAN_MAX = 2.5;
+
+  const nodesMap = new Map();  // id -> {id, label, count, x, y, community, degree, betweenness}
+  const linksMap = new Map();  // "a|||b" -> {id, a, b, weight, source, target}
+  const staging = new Map();   // id -> label
+  let groupsCount = 0;
+
+  // detection settings (persisted per slot)
+  let granularity = DEFAULT_GRANULARITY;   // Louvain resolution: higher => more, tighter groups
+  let excludeTopNode = false;              // detach busiest name from grouping
+
+  // undo (single level) + inline delete confirm
+  let undoDelta = null;
+  let pendingDeleteId = null;
+
+  // save slots
+  let slotIndex = { activeId: null, slots: [] };
+  let activeId = null;
+
+  // ---------- generic helpers ----------
+  function canon(s){ return s.trim().toLowerCase().replace(/\s+/g, ' '); }
+  function hashStr(s){ let h = 0; for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) >>> 0; } return h; }
+  function colorFor(id){ return IDENTITY_PALETTE[hashStr(id) % IDENTITY_PALETTE.length]; } // used for input chips only
+  function communityColor(idx){
+    if (idx < 0) return HUB_COLOR;
+    return COMMUNITY_PALETTE[idx % COMMUNITY_PALETTE.length];
+  }
+  function escapeHtml(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function debounce(fn, ms){ let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+  // ============================================================
+  // Graph analytics: Louvain community detection + weighted
+  // betweenness centrality. Both verified independently against
+  // hand-checkable graphs (paths, stars, bowties, cliques) before
+  // being wired in here.
+  // ============================================================
+
+  // ---- Louvain (weighted, undirected) ----
+  function buildAdj(nodeIds, edges) {
+    const adj = new Map();
+    nodeIds.forEach(id => adj.set(id, new Map()));
+    edges.forEach(({ a, b, weight }) => {
+      if (a === b) return;
+      adj.get(a).set(b, (adj.get(a).get(b) || 0) + weight);
+      adj.get(b).set(a, (adj.get(b).get(a) || 0) + weight);
+    });
+    return adj;
+  }
+
+  function oneLevelLouvain(nodes, adj, resolution = 1) {
+    const k = new Map();
+    let m2 = 0;
+    nodes.forEach(u => {
+      let deg = 0;
+      for (const [v, w] of adj.get(u).entries()) {
+        deg += w;
+        if (v === u) deg += w;
+      }
+      k.set(u, deg);
+      m2 += deg;
+    });
+    const m = m2 / 2;
+    if (m === 0) {
+      const communityOf = new Map();
+      nodes.forEach(u => communityOf.set(u, u));
+      return { communityOf, improved: false };
+    }
+
+    const communityOf = new Map();
+    nodes.forEach(u => communityOf.set(u, u));
+    const sigmaTot = new Map();
+    nodes.forEach(u => sigmaTot.set(u, k.get(u)));
+
+    let improved = false;
+    let anyMoveThisRound = true;
+    let guard = 0;
+    while (anyMoveThisRound && guard < 100) {
+      guard++;
+      anyMoveThisRound = false;
+      for (const u of nodes) {
+        const currentComm = communityOf.get(u);
+        const neighborCommWeight = new Map();
+        for (const [v, w] of adj.get(u).entries()) {
+          if (v === u) continue;
+          const cv = communityOf.get(v);
+          neighborCommWeight.set(cv, (neighborCommWeight.get(cv) || 0) + w);
+        }
+
+        sigmaTot.set(currentComm, sigmaTot.get(currentComm) - k.get(u));
+
+        let bestComm = currentComm;
+        let bestGain = (neighborCommWeight.get(currentComm) || 0) - resolution * sigmaTot.get(currentComm) * k.get(u) / (2 * m);
+
+        for (const [cv, kin] of neighborCommWeight.entries()) {
+          if (cv === currentComm) continue;
+          const gain = kin - resolution * sigmaTot.get(cv) * k.get(u) / (2 * m);
+          if (gain > bestGain + 1e-12) {
+            bestGain = gain;
+            bestComm = cv;
+          }
+        }
+
+        sigmaTot.set(bestComm, sigmaTot.get(bestComm) + k.get(u));
+        if (bestComm !== currentComm) {
+          communityOf.set(u, bestComm);
+          anyMoveThisRound = true;
+          improved = true;
+        }
+      }
+    }
+    return { communityOf, improved };
+  }
+
+  function aggregateGraph(nodes, adj, communityOf) {
+    const newAdj = new Map();
+    const comms = new Set(communityOf.values());
+    comms.forEach(c => newAdj.set(c, new Map()));
+
+    const seenPairs = new Set();
+    nodes.forEach(u => {
+      const cu = communityOf.get(u);
+      for (const [v, w] of adj.get(u).entries()) {
+        const cv = communityOf.get(v);
+        const pairKey = u <= v ? `${u}__${v}` : `${v}__${u}`;
+        if (seenPairs.has(pairKey)) continue;
+        seenPairs.add(pairKey);
+        if (u === v) {
+          newAdj.get(cu).set(cu, (newAdj.get(cu).get(cu) || 0) + w);
+          continue;
+        }
+        if (cu === cv) {
+          newAdj.get(cu).set(cu, (newAdj.get(cu).get(cu) || 0) + w);
+        } else {
+          newAdj.get(cu).set(cv, (newAdj.get(cu).get(cv) || 0) + w);
+          newAdj.get(cv).set(cu, (newAdj.get(cv).get(cu) || 0) + w);
+        }
+      }
+    });
+    return { nodes: Array.from(comms), adj: newAdj };
+  }
+
+  function louvain(nodeIds, edges, resolution = 1) {
+    if (nodeIds.length === 0) return new Map();
+    let currentNodes = nodeIds.slice();
+    let currentAdj = buildAdj(nodeIds, edges);
+
+    const membership = new Map();
+    nodeIds.forEach(id => membership.set(id, id));
+
+    let level = 0;
+    while (level < 30) {
+      level++;
+      const { communityOf, improved } = oneLevelLouvain(currentNodes, currentAdj, resolution);
+      for (const [orig, rep] of membership.entries()) {
+        membership.set(orig, communityOf.get(rep));
+      }
+      if (!improved) break;
+      const agg = aggregateGraph(currentNodes, currentAdj, communityOf);
+      if (agg.nodes.length === currentNodes.length) break;
+      currentNodes = agg.nodes;
+      currentAdj = agg.adj;
+    }
+    return membership;
+  }
+
+  // ---- Brandes' betweenness centrality (weighted: distance = 1/weight) ----
+  function betweenness(nodeIds, edges) {
+    const adj = new Map();
+    nodeIds.forEach(id => adj.set(id, new Map()));
+    edges.forEach(({ a, b, weight }) => {
+      if (a === b || weight <= 0) return;
+      const dist = 1 / weight;
+      if (!adj.get(a).has(b) || adj.get(a).get(b) > dist) {
+        adj.get(a).set(b, dist);
+        adj.get(b).set(a, dist);
+      }
+    });
+
+    const CB = new Map();
+    nodeIds.forEach(id => CB.set(id, 0));
+    const n = nodeIds.length;
+    const EPS = 1e-9;
+
+    for (const s of nodeIds) {
+      const dist = new Map(); nodeIds.forEach(id => dist.set(id, Infinity));
+      const sigma = new Map(); nodeIds.forEach(id => sigma.set(id, 0));
+      const pred = new Map(); nodeIds.forEach(id => pred.set(id, []));
+      dist.set(s, 0);
+      sigma.set(s, 1);
+
+      const visited = new Set();
+      const S = [];
+
+      for (let iter = 0; iter < n; iter++) {
+        let u = null, best = Infinity;
+        for (const id of nodeIds) {
+          if (!visited.has(id) && dist.get(id) < best) { best = dist.get(id); u = id; }
+        }
+        if (u === null) break;
+        visited.add(u);
+        S.push(u);
+
+        for (const [v, w] of adj.get(u).entries()) {
+          if (visited.has(v)) continue;
+          const alt = dist.get(u) + w;
+          if (alt < dist.get(v) - EPS) {
+            dist.set(v, alt);
+            sigma.set(v, sigma.get(u));
+            pred.set(v, [u]);
+          } else if (Math.abs(alt - dist.get(v)) < EPS) {
+            sigma.set(v, sigma.get(v) + sigma.get(u));
+            pred.get(v).push(u);
+          }
+        }
+      }
+
+      const delta = new Map(); nodeIds.forEach(id => delta.set(id, 0));
+      while (S.length) {
+        const w = S.pop();
+        for (const v of pred.get(w)) {
+          delta.set(v, delta.get(v) + (sigma.get(v) / sigma.get(w)) * (1 + delta.get(w)));
+        }
+        if (w !== s) CB.set(w, CB.get(w) + delta.get(w));
+      }
+    }
+    nodeIds.forEach(id => CB.set(id, CB.get(id) / 2));
+    return CB;
+  }
+
+  function degreeCentrality(nodeIds, edges) {
+    const deg = new Map();
+    nodeIds.forEach(id => deg.set(id, 0));
+    const seen = new Set();
+    edges.forEach(({ a, b }) => {
+      if (a === b) return;
+      const key = a < b ? `${a}__${b}` : `${b}__${a}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      deg.set(a, (deg.get(a) || 0) + 1);
+      deg.set(b, (deg.get(b) || 0) + 1);
+    });
+    return deg;
+  }
+
+  let lastAnalytics = { communityCount: 0, communities: [], excludedId: null };
+
+  // Busiest name = appears in the most groups (highest count), tie-broken by
+  // connections then label so the choice is stable frame to frame.
+  function pickBusiestId(nodesArr, degree){
+    let best = null;
+    nodesArr.forEach(n => {
+      const d = degree.get(n.id) || 0;
+      if (!best) { best = { n, d }; return; }
+      if (n.count > best.n.count) best = { n, d };
+      else if (n.count === best.n.count && d > best.d) best = { n, d };
+      else if (n.count === best.n.count && d === best.d && n.label.localeCompare(best.n.label) < 0) best = { n, d };
+    });
+    return best ? best.n.id : null;
+  }
+
+  function computeAnalytics(nodesArr, linksArr){
+    const nodeIds = nodesArr.map(n => n.id);
+    const edgeList = linksArr.map(l => ({ a: l.a, b: l.b, weight: l.weight }));
+
+    const degree = nodeIds.length ? degreeCentrality(nodeIds, edgeList) : new Map();
+    const cb = nodeIds.length ? betweenness(nodeIds, edgeList) : new Map();
+
+    // Optionally detach the busiest name from community detection so it stops
+    // gluing otherwise-separate groups together. It stays in the graph and keeps
+    // its connection/bridge stats — it just belongs to no group.
+    let excludedId = null;
+    if (excludeTopNode && nodesArr.length) excludedId = pickBusiestId(nodesArr, degree);
+
+    const louvNodeIds = excludedId ? nodeIds.filter(id => id !== excludedId) : nodeIds;
+    const louvEdges = excludedId ? edgeList.filter(e => e.a !== excludedId && e.b !== excludedId) : edgeList;
+    const membership = louvNodeIds.length ? louvain(louvNodeIds, louvEdges, granularity) : new Map();
+
+    const commGroups = new Map();
+    membership.forEach((c, id) => {
+      if (!commGroups.has(c)) commGroups.set(c, []);
+      commGroups.get(c).push(id);
+    });
+    const sortedComms = Array.from(commGroups.entries()).sort((a, b) => b[1].length - a[1].length);
+    const commIndexOf = new Map();
+    sortedComms.forEach(([c], idx) => commIndexOf.set(c, idx));
+
+    nodesArr.forEach(n => {
+      n.community = (n.id === excludedId) ? -1 : (commIndexOf.get(membership.get(n.id)) ?? 0);
+      n.degree = degree.get(n.id) || 0;
+      n.betweenness = cb.get(n.id) || 0;
+    });
+
+    lastAnalytics = {
+      communityCount: sortedComms.length,
+      communities: sortedComms.map(([, members]) => members.map(id => nodesMap.get(id)).filter(Boolean)
+        .sort((a, b) => b.count - a.count)),
+      excludedId
+    };
+    return lastAnalytics;
+  }
+
+  // ---------- persistence ----------
+  let storageBackend = 'none';
+
+  function waitForArtifactStorage(timeoutMs){
+    return new Promise((resolve) => {
+      const start = Date.now();
+      (function poll(){
+        if (window.storage) return resolve(true);
+        if (Date.now() - start > timeoutMs) return resolve(false);
+        setTimeout(poll, 50);
+      })();
+    });
+  }
+
+  function localStorageWorks(){
+    try {
+      const testKey = '__connection_map_probe__';
+      window.localStorage.setItem(testKey, '1');
+      window.localStorage.removeItem(testKey);
+      return true;
+    } catch (err) { return false; }
+  }
+
+  async function detectStorageBackend(){
+    const hasArtifactStorage = await waitForArtifactStorage(500);
+    if (hasArtifactStorage) return 'artifact';
+    if (localStorageWorks()) return 'local';
+    return 'none';
+  }
+
+  async function storageGet(key){
+    if (storageBackend === 'artifact') {
+      try { const res = await window.storage.get(key, false); return res && res.value ? res.value : null; }
+      catch (err) { return null; }
+    }
+    if (storageBackend === 'local') {
+      try { return window.localStorage.getItem(key); } catch (err) { return null; }
+    }
+    return null;
+  }
+
+  async function storageSet(key, value){
+    if (storageBackend === 'artifact') {
+      try { await window.storage.set(key, value, false); } catch (err) { console.error('Artifact storage write failed', err); }
+      return;
+    }
+    if (storageBackend === 'local') {
+      try { window.localStorage.setItem(key, value); } catch (err) { console.error('localStorage write failed', err); }
+      return;
+    }
+  }
+
+  async function storageDelete(key){
+    if (storageBackend === 'artifact') {
+      try { await window.storage.delete(key, false); } catch (err) { /* leave a stale key rather than fail the whole op */ }
+      return;
+    }
+    if (storageBackend === 'local') {
+      try { window.localStorage.removeItem(key); } catch (err) {}
+      return;
+    }
+  }
+
+  function describeStorageBackend(){
+    if (storageBackend === 'artifact') return 'Autosaving to your Claude account.';
+    if (storageBackend === 'local') return 'Autosaving to this browser on this device — your data is always private.';
+    return 'Your browser is blocking storage — nothing will be saved after you close this page.';
+  }
+
+  // ---- save slots ----
+  function genId(){ return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function slotKey(id){ return SLOT_PREFIX + id; }
+  async function saveIndex(){ await storageSet(INDEX_KEY, JSON.stringify(slotIndex)); }
+  async function loadSlotPayload(id){
+    try { const raw = await storageGet(slotKey(id)); return raw ? JSON.parse(raw) : null; }
+    catch (err) { return null; }
+  }
+  async function saveSlotPayload(id, payload){ await storageSet(slotKey(id), JSON.stringify(payload)); }
+
+  // First run on a machine that only has the previous single-store format:
+  // fold it into a "My network" slot so nothing is lost.
+  async function migrateOrCreateIndex(){
+    let legacy = null;
+    try { const raw = await storageGet(LEGACY_KEY); if (raw) legacy = JSON.parse(raw); } catch (err) {}
+    const id = genId();
+    const idx = { activeId: id, slots: [{ id, name: 'My network', updatedAt: Date.now() }] };
+    const payload = (legacy && typeof legacy === 'object' && legacy.nodes) ? legacy : { nodes: {}, edges: {}, groupsCount: 0 };
+    await saveSlotPayload(id, payload);
+    slotIndex = idx;
+    await saveIndex();
+    return idx;
+  }
+
+  async function loadData(){
+    storageBackend = await detectStorageBackend();
+    let idx = null;
+    try { const raw = await storageGet(INDEX_KEY); if (raw) idx = JSON.parse(raw); } catch (err) {}
+    if (!idx || !Array.isArray(idx.slots) || !idx.slots.length) {
+      idx = await migrateOrCreateIndex();
+    }
+    slotIndex = idx;
+    activeId = (idx.activeId && idx.slots.some(s => s.id === idx.activeId)) ? idx.activeId : idx.slots[0].id;
+    slotIndex.activeId = activeId;
+    const payload = await loadSlotPayload(activeId);
+    applyPayloadToState(payload || { nodes: {}, edges: {}, groupsCount: 0 });
+  }
+
+  async function persist(){
+    if (!activeId) return;
+    try {
+      await saveSlotPayload(activeId, currentPayload());
+      const s = slotIndex.slots.find(x => x.id === activeId);
+      if (s) s.updatedAt = Date.now();
+      slotIndex.activeId = activeId;
+      await saveIndex();
+    } catch (err) {
+      console.error('Could not save connection map data', err);
+    }
+  }
+
+  function activeSlotName(){
+    const s = slotIndex.slots.find(x => x.id === activeId);
+    return s ? s.name : 'My network';
+  }
+
+  function currentPayload(){
+    const nodesOut = {};
+    nodesMap.forEach((n, id) => { nodesOut[id] = { label: n.label, count: n.count }; });
+    const edgesOut = {};
+    linksMap.forEach((l, id) => { edgesOut[id] = { a: l.a, b: l.b, weight: l.weight }; });
+    return { nodes: nodesOut, edges: edgesOut, groupsCount, settings: { granularity, excludeTopNode } };
+  }
+
+  function applyPayloadToState(payload){
+    nodesMap.clear();
+    linksMap.clear();
+    Object.entries(payload.nodes || {}).forEach(([id, n]) => {
+      if (n && typeof n.label === 'string' && typeof n.count === 'number') {
+        nodesMap.set(id, { id, label: n.label, count: n.count });
+      }
+    });
+    Object.entries(payload.edges || {}).forEach(([id, e]) => {
+      if (e && typeof e.a === 'string' && typeof e.b === 'string' && typeof e.weight === 'number') {
+        linksMap.set(id, { id, a: e.a, b: e.b, weight: e.weight, source: e.a, target: e.b });
+      }
+    });
+    groupsCount = typeof payload.groupsCount === 'number' ? payload.groupsCount : 0;
+
+    // Detection settings travel with the slot; older/imported payloads without
+    // them fall back to sensible defaults.
+    if (payload.settings && typeof payload.settings === 'object') {
+      const g = Number(payload.settings.granularity);
+      granularity = isFinite(g) ? Math.min(GRAN_MAX, Math.max(GRAN_MIN, g)) : DEFAULT_GRANULARITY;
+      excludeTopNode = !!payload.settings.excludeTopNode;
+    } else {
+      granularity = DEFAULT_GRANULARITY;
+      excludeTopNode = false;
+    }
+  }
+
+  // ---------- DOM refs ----------
+  const nameInput = document.getElementById('nameInput');
+  const submitBtn = document.getElementById('submitBtn');
+  const stagingPreview = document.getElementById('stagingPreview');
+  const existingNames = document.getElementById('existingNames');
+  const existingLabel = document.getElementById('existingLabel');
+  const statNames = document.getElementById('statNames');
+  const statLinks = document.getElementById('statLinks');
+  const statGroups = document.getElementById('statGroups');
+  const statCommunities = document.getElementById('statCommunities');
+  const emptyState = document.getElementById('emptyState');
+  const resetBtn = document.getElementById('resetBtn');
+  const storageStatus = document.getElementById('storageStatus');
+  const tooltip = document.getElementById('tooltip');
+  const graphHost = document.getElementById('graphHost');
+  const analysisSummary = document.getElementById('analysisSummary');
+  const communityList = document.getElementById('communityList');
+  const degreeList = document.getElementById('degreeList');
+  const betweennessList = document.getElementById('betweennessList');
+  const exportBtn = document.getElementById('exportBtn');
+  const exportOutputWrap = document.getElementById('exportOutputWrap');
+  const exportOutput = document.getElementById('exportOutput');
+  const importBtn = document.getElementById('importBtn');
+  const importFile = document.getElementById('importFile');
+  const showPasteBtn = document.getElementById('showPasteBtn');
+  const importPasteWrap = document.getElementById('importPasteWrap');
+  const importPasteArea = document.getElementById('importPasteArea');
+  const importPasteBtn = document.getElementById('importPasteBtn');
+  const importStatus = document.getElementById('importStatus');
+  // new controls
+  const undoBtn = document.getElementById('undoBtn');
+  const granularitySlider = document.getElementById('granularitySlider');
+  const granularityVal = document.getElementById('granularityVal');
+  const hubToggle = document.getElementById('hubToggle');
+  const hubToggleSub = document.getElementById('hubToggleSub');
+  const slotSwitcher = document.getElementById('slotSwitcher');
+  const slotBtn = document.getElementById('slotBtn');
+  const slotName = document.getElementById('slotName');
+  const slotMenu = document.getElementById('slotMenu');
+  const slotList = document.getElementById('slotList');
+  const newSlotBtn = document.getElementById('newSlotBtn');
+  const saveImgBtn = document.getElementById('saveImgBtn');
+  const saveNetBtn = document.getElementById('saveNetBtn');
+  const shareBtn = document.getElementById('shareBtn');
+  const toastHost = document.getElementById('toastHost');
+  const shareFallback = document.getElementById('shareFallback');
+  const shareLinkInput = document.getElementById('shareLinkInput');
+  const copyShareBtn = document.getElementById('copyShareBtn');
+  const closeShareBtn = document.getElementById('closeShareBtn');
+
+  // ---------- toast ----------
+  const ICON = {
+    ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8h.01M11 12h1v4h1"/><circle cx="12" cy="12" r="9"/></svg>'
+  };
+  function toast(msg, kind = 'info', ms = 2600){
+    const el = document.createElement('div');
+    el.className = 'toast' + (kind === 'ok' ? ' ok' : kind === 'warn' ? ' warn' : '');
+    el.innerHTML = (ICON[kind] || '') + '<span>' + escapeHtml(msg) + '</span>';
+    toastHost.appendChild(el);
+    setTimeout(() => {
+      el.classList.add('leaving');
+      setTimeout(() => el.remove(), 260);
+    }, ms);
+  }
+
+  // ---------- staging ----------
+  function toggleStage(id, label){
+    pendingDeleteId = null;
+    if (staging.has(id)) staging.delete(id);
+    else staging.set(id, label);
+    renderStaging();
+    renderExisting();
+  }
+
+  function renderStaging(){
+    submitBtn.disabled = staging.size === 0;
+    submitBtn.textContent = staging.size > 1 ? `Save Group (${staging.size} names)` : 'Save Group';
+    if (staging.size === 0) {
+      stagingPreview.innerHTML = '<span class="staging-empty">No names addded yet — click a saved name below or type a new one.</span>';
+      return;
+    }
+    const row = document.createElement('div');
+    row.className = 'chip-row';
+    staging.forEach((label, id) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip staged';
+      chip.innerHTML = `<span class="dot" style="background:${colorFor(id)}"></span>${escapeHtml(label)}`;
+      chip.onclick = () => toggleStage(id, label);
+      row.appendChild(chip);
+    });
+    stagingPreview.innerHTML = '';
+    stagingPreview.appendChild(row);
+  }
+
+  const CROSS_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+  const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+
+  function renderExisting(){
+    const arr = Array.from(nodesMap.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    existingLabel.style.display = arr.length ? '' : 'none';
+    existingNames.innerHTML = '';
+    if (pendingDeleteId && !nodesMap.has(pendingDeleteId)) pendingDeleteId = null;
+
+    arr.forEach(n => {
+      const chip = document.createElement('div');
+
+      if (pendingDeleteId === n.id) {
+        chip.className = 'chip deletable confirming';
+        chip.innerHTML =
+          `<span class="confirm-text">Remove “${escapeHtml(n.label)}”?</span>` +
+          `<button type="button" class="confirm-yes" aria-label="Confirm removing ${escapeHtml(n.label)}">${CHECK_SVG}</button>` +
+          `<button type="button" class="confirm-no" aria-label="Keep ${escapeHtml(n.label)}">${CROSS_SVG}</button>`;
+        chip.querySelector('.confirm-yes').onclick = (e) => { e.stopPropagation(); deletePerson(n.id); };
+        chip.querySelector('.confirm-no').onclick = (e) => { e.stopPropagation(); pendingDeleteId = null; renderExisting(); };
+        existingNames.appendChild(chip);
+        return;
+      }
+
+      chip.className = 'chip deletable' + (staging.has(n.id) ? ' staged' : '');
+      chip.setAttribute('role', 'button');
+      chip.setAttribute('tabindex', '0');
+      chip.setAttribute('aria-label', `${n.label}, in ${n.count} group${n.count === 1 ? '' : 's'}. Add to current group.`);
+      chip.innerHTML =
+        `<span class="dot" style="background:${colorFor(n.id)}"></span>${escapeHtml(n.label)}<span class="n">${n.count}</span>` +
+        `<button type="button" class="chip-del" aria-label="Remove ${escapeHtml(n.label)}">${CROSS_SVG}</button>`;
+
+      chip.addEventListener('click', () => toggleStage(n.id, n.label));
+      chip.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleStage(n.id, n.label); }
+      });
+      chip.querySelector('.chip-del').addEventListener('click', (e) => {
+        e.stopPropagation();
+        pendingDeleteId = n.id;
+        renderExisting();
+      });
+      existingNames.appendChild(chip);
+    });
+  }
+
+  function deletePerson(id){
+    if (!nodesMap.has(id)) { pendingDeleteId = null; return; }
+    nodesMap.delete(id);
+    Array.from(linksMap.keys()).forEach(key => {
+      const l = linksMap.get(key);
+      if (l.a === id || l.b === id) linksMap.delete(key);
+    });
+    staging.delete(id);
+    pendingDeleteId = null;
+    clearUndo();               // graph changed outside the log flow
+    renderStaging();
+    renderExisting();
+    updateStats();
+    updateGraph();
+    persist();
+    toast('Removed from your network.', 'ok');
+  }
+
+  // cancel a pending delete when clicking anywhere that isn't the confirming chip
+  document.addEventListener('click', (e) => {
+    if (!pendingDeleteId) return;
+    if (e.target.closest && e.target.closest('.chip.confirming')) return;
+    pendingDeleteId = null;
+    renderExisting();
+  });
+
+  function commitInputValue(){
+    const raw = nameInput.value;
+    if (!raw.trim()) return;
+    raw.split(',').map(s => s.trim()).filter(Boolean).forEach(token => {
+      const id = canon(token);
+      if (!id) return;
+      const label = staging.get(id) || (nodesMap.has(id) ? nodesMap.get(id).label : token);
+      staging.set(id, label);
+    });
+    nameInput.value = '';
+    renderStaging();
+    renderExisting();
+  }
+
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitInputValue(); }
+  });
+
+  submitBtn.addEventListener('click', () => {
+    if (staging.size === 0) return;
+    const entries = Array.from(staging.entries());
+
+    // Record exactly what this group changes so a single undo can reverse it
+    // in place, without disturbing the positions of everything else.
+    const delta = { addedNodes: [], incNodes: [], addedEdges: [], incEdges: [] };
+
+    entries.forEach(([id, label]) => {
+      if (nodesMap.has(id)) { nodesMap.get(id).count += 1; delta.incNodes.push(id); }
+      else { nodesMap.set(id, { id, label, count: 1 }); delta.addedNodes.push(id); }
+    });
+
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        const pair = [entries[i][0], entries[j][0]].sort();
+        const key = `${pair[0]}|||${pair[1]}`;
+        if (linksMap.has(key)) { linksMap.get(key).weight += 1; delta.incEdges.push(key); }
+        else { linksMap.set(key, { id: key, a: pair[0], b: pair[1], weight: 1, source: pair[0], target: pair[1] }); delta.addedEdges.push(key); }
+      }
+    }
+
+    groupsCount += 1;
+    undoDelta = delta;
+    updateUndoBtn();
+    staging.clear();
+    pendingDeleteId = null;
+    renderStaging();
+    renderExisting();
+    updateStats();
+    updateGraph();
+    persist();
+  });
+
+  // ---------- undo (single level) ----------
+  function updateUndoBtn(){ undoBtn.disabled = !undoDelta; }
+  function clearUndo(){ undoDelta = null; updateUndoBtn(); }
+
+  undoBtn.addEventListener('click', () => {
+    if (!undoDelta) return;
+    const d = undoDelta;
+    d.addedEdges.forEach(key => linksMap.delete(key));
+    d.incEdges.forEach(key => {
+      const l = linksMap.get(key);
+      if (l) { l.weight -= 1; if (l.weight <= 0) linksMap.delete(key); }
+    });
+    d.addedNodes.forEach(id => nodesMap.delete(id));
+    d.incNodes.forEach(id => {
+      const n = nodesMap.get(id);
+      if (n) { n.count -= 1; if (n.count <= 0) nodesMap.delete(id); }
+    });
+    groupsCount = Math.max(0, groupsCount - 1);
+
+    clearUndo();
+    pendingDeleteId = null;
+    renderStaging();
+    renderExisting();
+    updateStats();
+    updateGraph();
+    persist();
+    toast('Reversed the last group.', 'ok');
+  });
+
+  function updateStats(){
+    statNames.textContent = nodesMap.size;
+    statLinks.textContent = linksMap.size;
+    statGroups.textContent = groupsCount;
+    statCommunities.textContent = lastAnalytics.communityCount;
+  }
+
+  function setEmptyMessage(){
+    emptyState.innerHTML = '<strong>Nothing charted yet</strong><span>Log your first group above and the network will start taking shape here.</span>';
+  }
+
+  // ---------- reset ----------
+  let resetArmed = false;
+  let resetTimer = null;
+  resetBtn.addEventListener('click', () => {
+    if (!resetArmed) {
+      resetArmed = true;
+      resetBtn.textContent = 'Click again to confirm';
+      resetBtn.classList.add('danger-confirm');
+      resetTimer = setTimeout(() => {
+        resetArmed = false;
+        resetBtn.textContent = 'Reset Data';
+        resetBtn.classList.remove('danger-confirm');
+      }, 4000);
+      return;
+    }
+    clearTimeout(resetTimer);
+    resetArmed = false;
+    resetBtn.textContent = 'Reset Data';
+    resetBtn.classList.remove('danger-confirm');
+
+    nodesMap.clear();
+    linksMap.clear();
+    staging.clear();
+    groupsCount = 0;
+    clearUndo();
+    pendingDeleteId = null;
+    renderStaging();
+    renderExisting();
+    updateStats();
+    updateGraph();
+    persist();
+    toast('This network was cleared.', 'ok');
+  });
+
+  // ---------- import / export ----------
+  function setImportStatus(msg, kind){
+    importStatus.textContent = msg;
+    importStatus.className = 'status-msg' + (kind ? ' ' + kind : '');
+  }
+
+  exportBtn.addEventListener('click', () => {
+    const payload = { schema: 1, exportedAt: new Date().toISOString(), data: currentPayload() };
+    const json = JSON.stringify(payload, null, 2);
+
+    exportOutput.value = json;
+    exportOutputWrap.style.display = '';
+    exportOutput.focus();
+    exportOutput.select();
+
+    try {
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `connection-map-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) {
+      // download blocked in this environment — the textarea above still has the full export
+    }
+  });
+
+  showPasteBtn.addEventListener('click', () => {
+    importPasteWrap.style.display = importPasteWrap.style.display === 'none' ? '' : 'none';
+  });
+
+  let pendingImportPayload = null;
+  let importConfirmArmed = false;
+  let importConfirmTimer = null;
+
+  function parseImportPayload(rawText){
+    let parsed;
+    try { parsed = JSON.parse(rawText); }
+    catch (err) { return { error: 'That doesn\u2019t look like valid JSON — check the file or text and try again.' }; }
+    const payload = (parsed && parsed.data && typeof parsed.data === 'object') ? parsed.data : parsed;
+    if (!payload || typeof payload.nodes !== 'object' || typeof payload.edges !== 'object') {
+      return { error: 'That JSON is missing the expected "nodes" / "edges" fields.' };
+    }
+    return { payload };
+  }
+
+  function applyImport(payload){
+    applyPayloadToState(payload);
+    staging.clear();
+    clearUndo();
+    pendingDeleteId = null;
+    syncSettingsUI();
+    renderStaging();
+    renderExisting();
+    updateStats();
+    updateGraph();
+    persist();
+  }
+
+  function resetImportArmState(){
+    importConfirmArmed = false;
+    pendingImportPayload = null;
+    clearTimeout(importConfirmTimer);
+    importBtn.textContent = 'Import data';
+  }
+
+  function beginImport(rawText){
+    if (!rawText || !rawText.trim()) { setImportStatus('Nothing to import yet.', 'warn'); return; }
+    const { payload, error } = parseImportPayload(rawText);
+    if (error) { setImportStatus(error, 'warn'); return; }
+
+    const incomingNodes = Object.keys(payload.nodes).length;
+    const incomingEdges = Object.keys(payload.edges).length;
+
+    if (nodesMap.size === 0) {
+      applyImport(payload);
+      setImportStatus(`Imported ${incomingNodes} names and ${incomingEdges} connections.`, 'ok');
+      return;
+    }
+
+    pendingImportPayload = payload;
+    importConfirmArmed = true;
+    importBtn.textContent = 'Click again to confirm';
+    setImportStatus(`This will replace your current ${nodesMap.size} names / ${linksMap.size} connections with the imported ${incomingNodes} names / ${incomingEdges} connections. Click "Import data" again to confirm.`, 'warn');
+    clearTimeout(importConfirmTimer);
+    importConfirmTimer = setTimeout(resetImportArmState, 8000);
+  }
+
+  function confirmPendingImport(){
+    const payload = pendingImportPayload;
+    resetImportArmState();
+    applyImport(payload);
+    setImportStatus(`Imported ${nodesMap.size} names and ${linksMap.size} connections.`, 'ok');
+  }
+
+  importBtn.addEventListener('click', () => {
+    if (importConfirmArmed && pendingImportPayload) { confirmPendingImport(); return; }
+    importFile.click();
+  });
+
+  importFile.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => beginImport(String(reader.result));
+    reader.onerror = () => setImportStatus('Could not read that file.', 'warn');
+    reader.readAsText(file);
+    importFile.value = '';
+  });
+
+  importPasteBtn.addEventListener('click', () => {
+    if (importConfirmArmed && pendingImportPayload) { confirmPendingImport(); return; }
+    beginImport(importPasteArea.value);
+  });
+
+  // ---------- graph ----------
+  let width, height, svg, g, hullGroup, linkGroup, nodeGroup, simulation, zoomBehavior;
+  let communityAnchors = [{ x: 0, y: 0 }];
+  const radiusScale = d3.scaleSqrt().range([16, 50]).clamp(true);
+  const strokeScale = d3.scaleLinear().range([1.5, 7]).clamp(true);
+  const opacityScale = d3.scaleLinear().range([0.35, 0.85]).clamp(true);
+  const ringScale = d3.scaleLinear().range([0, 4.5]).clamp(true);
+
+  const measureCanvas = document.createElement('canvas');
+  const measureCtx = measureCanvas.getContext('2d');
+  function textWidth(text, fontPx){
+    measureCtx.font = `600 ${fontPx}px Inter, sans-serif`;
+    return measureCtx.measureText(text).width;
+  }
+  function fontSizeFor(radius){ return Math.max(9, Math.min(13, radius * 0.32)); }
+  function fitLabel(text, fontPx, maxWidth){
+    if (textWidth(text, fontPx) <= maxWidth) return text;
+    let lo = 0, hi = text.length;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      const candidate = text.slice(0, mid) + '\u2026';
+      if (textWidth(candidate, fontPx) <= maxWidth) lo = mid; else hi = mid - 1;
+    }
+    return lo > 0 ? text.slice(0, lo) + '\u2026' : '\u2026';
+  }
+
+  // A detached hub (community -1) is pulled to the centre so it can sit among
+  // the groups it connects rather than being dragged into one of them.
+  function anchorFor(d){
+    if (d.community < 0) return { x: 0, y: 0 };
+    return communityAnchors[d.community] || communityAnchors[0] || { x: 0, y: 0 };
+  }
+
+  function computeCommunityAnchors(numCommunities, totalNodes){
+    if (numCommunities <= 1) return [{ x: 0, y: 0 }];
+    const R = Math.max(180, numCommunities * 70, Math.sqrt(totalNodes) * 60);
+    const anchors = [];
+    for (let i = 0; i < numCommunities; i++) {
+      const angle = (2 * Math.PI * i) / numCommunities - Math.PI / 2;
+      anchors.push({ x: Math.cos(angle) * R, y: Math.sin(angle) * R });
+    }
+    return anchors;
+  }
+
+  function initGraph(){
+    width = graphHost.clientWidth;
+    height = graphHost.clientHeight;
+
+    svg = d3.select(graphHost).append('svg').attr('width', width).attr('height', height);
+    g = svg.append('g');
+    hullGroup = g.append('g').attr('class', 'hulls');
+    linkGroup = g.append('g').attr('class', 'links');
+    nodeGroup = g.append('g').attr('class', 'nodes');
+
+    zoomBehavior = d3.zoom().scaleExtent([0.15, 4]).on('zoom', (ev) => g.attr('transform', ev.transform));
+    svg.call(zoomBehavior);
+
+    simulation = d3.forceSimulation()
+      .alphaDecay(0.015)
+      .force('link', d3.forceLink().id(d => d.id))
+      .force('charge', d3.forceManyBody())
+      .force('collision', d3.forceCollide().iterations(2))
+      .force('x', d3.forceX(d => anchorFor(d).x).strength(0.09))
+      .force('y', d3.forceY(d => anchorFor(d).y).strength(0.09))
+      .on('tick', ticked);
+
+    window.addEventListener('resize', debounce(() => {
+      width = graphHost.clientWidth;
+      height = graphHost.clientHeight;
+      svg.attr('width', width).attr('height', height);
+    }, 200));
+  }
+
+  function ticked(){
+    linkGroup.selectAll('line')
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    nodeGroup.selectAll('g.node')
+      .attr('transform', d => `translate(${d.x},${d.y})`);
+    updateHulls();
+  }
+
+  function updateHulls(){
+    const nodesArr = Array.from(nodesMap.values()).filter(n => n.x !== undefined);
+    const byComm = d3.group(nodesArr, d => d.community);
+    const hullData = [];
+    byComm.forEach((members, commId) => {
+      if (commId < 0) return;   // the detached hub belongs to no group, so no hull
+      const pts = [];
+      members.forEach(n => {
+        const r = radiusScale(n.count) + 16;
+        const steps = 8;
+        for (let i = 0; i < steps; i++) {
+          const angle = (2 * Math.PI * i) / steps;
+          pts.push([n.x + Math.cos(angle) * r, n.y + Math.sin(angle) * r]);
+        }
+      });
+      let hull = pts.length >= 3 ? d3.polygonHull(pts) : pts;
+      if (hull && hull.length >= 3) {
+        hullData.push({ id: commId, color: communityColor(commId), points: hull });
+      }
+    });
+
+    const line = d3.line().curve(d3.curveCatmullRomClosed.alpha(0.7));
+    const hullSel = hullGroup.selectAll('path').data(hullData, d => d.id);
+    hullSel.exit().remove();
+    const hullEnter = hullSel.enter().append('path').attr('class', 'community-hull');
+    hullEnter.merge(hullSel)
+      .attr('d', d => line(d.points))
+      .attr('fill', d => d.color)
+      .attr('fill-opacity', 0.10)
+      .attr('stroke', d => d.color)
+      .attr('stroke-opacity', 0.28)
+      .attr('stroke-width', 1.5);
+  }
+
+  function dragBehavior(sim){
+    return d3.drag()
+      .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(0.25).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+      .on('end', (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.fx = null; d.fy = null; });
+  }
+
+  function showTooltip(html, event){
+    tooltip.innerHTML = html;
+    tooltip.style.opacity = 1;
+    positionTooltip(event);
+  }
+  function positionTooltip(event){
+    const rect = graphHost.getBoundingClientRect();
+    tooltip.style.left = (event.clientX - rect.left) + 'px';
+    tooltip.style.top = (event.clientY - rect.top) + 'px';
+  }
+  function hideTooltip(){ tooltip.style.opacity = 0; }
+
+  function zoomToFit(padding){
+    const nodesArr = Array.from(nodesMap.values()).filter(n => n.x !== undefined);
+    if (!nodesArr.length) return;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    nodesArr.forEach(n => {
+      const r = radiusScale(n.count) + 20;
+      minX = Math.min(minX, n.x - r); maxX = Math.max(maxX, n.x + r);
+      minY = Math.min(minY, n.y - r); maxY = Math.max(maxY, n.y + r);
+    });
+    const dx = Math.max(1, maxX - minX), dy = Math.max(1, maxY - minY);
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const scale = Math.max(0.15, Math.min(3, 0.88 / Math.max(dx / width, dy / height)));
+    const transform = d3.zoomIdentity.translate(width / 2, height / 2).scale(scale).translate(-cx, -cy);
+    svg.transition().duration(600).call(zoomBehavior.transform, transform);
+  }
+
+  function armAutoFitOnce(){
+    simulation.on('end', () => {
+      zoomToFit();
+      simulation.on('end', null);
+    });
+  }
+
+  function bridgeThreshold(nodesArr){
+    const positive = nodesArr.map(n => n.betweenness).filter(v => v > 1e-9).sort((a, b) => b - a);
+    if (!positive.length) return Infinity;
+    const count = Math.max(1, Math.min(BRIDGE_MAX_COUNT, Math.round(positive.length * BRIDGE_TOP_FRACTION)));
+    return positive[count - 1];
+  }
+
+  function updateGraph(opts){
+    const reheat = opts && typeof opts.reheat === 'number' ? opts.reheat : 0.9;
+    const refit = !opts || opts.refit !== false;
+    emptyState.style.display = nodesMap.size ? 'none' : 'flex';
+
+    const nodesArr = Array.from(nodesMap.values());
+    const linksArr = Array.from(linksMap.values());
+
+    computeAnalytics(nodesArr, linksArr);
+    communityAnchors = computeCommunityAnchors(Math.max(1, lastAnalytics.communityCount), nodesArr.length);
+
+    const maxCount = d3.max(nodesArr, d => d.count) || 1;
+    const maxWeight = d3.max(linksArr, d => d.weight) || 1;
+    const maxBetweenness = d3.max(nodesArr, d => d.betweenness) || 0;
+    radiusScale.domain([1, maxCount]);
+    strokeScale.domain([1, maxWeight]);
+    opacityScale.domain([1, maxWeight]);
+    ringScale.domain([0, maxBetweenness || 1]);
+    const bridgeCut = bridgeThreshold(nodesArr);
+
+    nodesArr.forEach(n => {
+      if (n.x === undefined) {
+        const anchor = anchorFor(n);
+        n.x = anchor.x + (Math.random() - 0.5) * 60;
+        n.y = anchor.y + (Math.random() - 0.5) * 60;
+      }
+    });
+
+    const n = nodesArr.length;
+    simulation.nodes(nodesArr);
+
+    simulation.force('charge', d3.forceManyBody().strength(-Math.min(700, 90 + n * 3.2)).distanceMax(Math.max(400, n * 4)));
+    simulation.force('collision', d3.forceCollide().radius(d => radiusScale(d.count) + 14).strength(0.9).iterations(2));
+
+    const baseDistance = Math.max(70, Math.min(220, 60 + n * 0.6));
+    simulation.force('link')
+      .links(linksArr)
+      .distance(d => Math.max(baseDistance * 0.4, baseDistance - d.weight * 14))
+      .strength(d => Math.min(0.85, 0.12 + d.weight * 0.10));
+
+    // links
+    const linkSel = linkGroup.selectAll('line').data(linksArr, d => d.id);
+    linkSel.exit().remove();
+    const linkEnter = linkSel.enter().append('line').attr('stroke', '#5B6B94');
+    linkEnter.merge(linkSel)
+      .attr('stroke-width', d => strokeScale(d.weight))
+      .attr('stroke-opacity', d => opacityScale(d.weight))
+      .on('mousemove', (ev, d) => {
+        const an = nodesMap.get(d.a), bn = nodesMap.get(d.b);
+        showTooltip(`${escapeHtml(an ? an.label : d.a)} \u2194 ${escapeHtml(bn ? bn.label : d.b)}<br><span class="count">${d.weight} shared group${d.weight === 1 ? '' : 's'}</span>`, ev);
+      })
+      .on('mouseleave', hideTooltip);
+
+    // nodes
+    const nodeSel = nodeGroup.selectAll('g.node').data(nodesArr, d => d.id);
+    nodeSel.exit().remove();
+    const nodeEnter = nodeSel.enter().append('g').attr('class', 'node').call(dragBehavior(simulation));
+    nodeEnter.append('circle').attr('class', 'node-ring');
+    nodeEnter.append('circle').attr('class', 'node-fill');
+    nodeEnter.append('text').attr('class', 'node-label').attr('text-anchor', 'middle');
+    const nodeAll = nodeEnter.merge(nodeSel);
+
+    nodeAll.select('circle.node-fill')
+      .attr('r', d => radiusScale(d.count))
+      .attr('fill', d => communityColor(d.community))
+      .attr('fill-opacity', 0.94);
+
+    nodeAll.select('circle.node-ring')
+      .attr('r', d => radiusScale(d.count) + 3)
+      .attr('fill', 'none')
+      .attr('stroke', 'var(--accent)')
+      .attr('stroke-width', d => (d.betweenness >= bridgeCut ? Math.max(2, ringScale(d.betweenness)) : 0));
+
+    nodeAll.select('text')
+      .attr('dy', '0.35em')
+      .style('font-size', d => fontSizeFor(radiusScale(d.count)) + 'px')
+      .text(d => {
+        const r = radiusScale(d.count);
+        return fitLabel(d.label, fontSizeFor(r), Math.max(12, r * 1.6));
+      });
+
+    nodeAll.on('mousemove', (ev, d) => {
+      const bridgeFlag = d.betweenness >= bridgeCut ? '<br><span class="bridge-flag">Bridge person</span>' : '';
+      showTooltip(`${escapeHtml(d.label)}<br><span class="count">${d.count} group${d.count === 1 ? '' : 's'} \u00b7 ${d.degree} connection${d.degree === 1 ? '' : 's'}</span>${bridgeFlag}`, ev);
+    }).on('mouseleave', hideTooltip);
+
+    simulation.alpha(reheat).restart();
+    if (refit) armAutoFitOnce();
+
+    renderAnalysisPanel(nodesArr, bridgeCut);
+    updateStats();
+    syncActionAvailability();
+  }
+
+  function renderAnalysisPanel(nodesArr, bridgeCut){
+    if (!nodesArr.length) {
+      analysisSummary.textContent = 'Log a group above to start seeing groups, connectors, and bridges.';
+      communityList.innerHTML = '';
+      degreeList.innerHTML = '';
+      betweennessList.innerHTML = '';
+      return;
+    }
+
+    const excludedNode = lastAnalytics.excludedId ? nodesMap.get(lastAnalytics.excludedId) : null;
+    const excludeNote = excludedNode ? ` ${escapeHtml(excludedNode.label)} is held out of grouping (the busiest name), so it belongs to no group.` : '';
+    analysisSummary.innerHTML = `${lastAnalytics.communityCount} group${lastAnalytics.communityCount === 1 ? '' : 's'} detected via modularity (Louvain) across ${nodesArr.length} names, at ${escapeHtml(describeGranularity(granularity).toLowerCase())} detection.${excludeNote} Bridge ranking uses weighted betweenness centrality — stronger ties count as "closer", so paths route through your closest connections first.`;
+
+    communityList.innerHTML = '';
+    if (excludedNode) {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <div class="rank-row">
+          <span class="rank-name"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${HUB_COLOR};margin-right:6px;"></span>${escapeHtml(excludedNode.label)}</span>
+          <span class="rank-meta">no group</span>
+        </div>
+        <div class="rank-sub">Detached hub — connects across groups</div>
+      `;
+      communityList.appendChild(li);
+    }
+    lastAnalytics.communities.forEach((members, idx) => {
+      const shown = members.slice(0, 6).map(m => m.label);
+      const extra = members.length - shown.length;
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <div class="rank-row">
+          <span class="rank-name"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${communityColor(idx)};margin-right:6px;"></span>Group ${idx + 1}</span>
+          <span class="rank-meta">${members.length} people</span>
+        </div>
+        <div class="rank-sub">${escapeHtml(shown.join(', '))}${extra > 0 ? ` +${extra} more` : ''}</div>
+      `;
+      communityList.appendChild(li);
+    });
+
+    const byDegree = nodesArr.slice().sort((a, b) => b.degree - a.degree).slice(0, 8);
+    degreeList.innerHTML = '';
+    if (!byDegree.some(n => n.degree > 0)) {
+      degreeList.innerHTML = '<li class="empty-note">No connections yet.</li>';
+    } else {
+      byDegree.forEach(n => {
+        if (n.degree === 0) return;
+        const li = document.createElement('li');
+        li.innerHTML = `<div class="rank-row"><span class="rank-name">${escapeHtml(n.label)}</span><span class="rank-meta">${n.degree} people</span></div>`;
+        degreeList.appendChild(li);
+      });
+    }
+
+    const byBetween = nodesArr.slice().filter(n => n.betweenness > 1e-9).sort((a, b) => b.betweenness - a.betweenness).slice(0, 8);
+    betweennessList.innerHTML = '';
+    if (!byBetween.length) {
+      betweennessList.innerHTML = '<li class="empty-note">No clear bridges yet — groups aren\u2019t interconnected enough to tell.</li>';
+    } else {
+      byBetween.forEach(n => {
+        const li = document.createElement('li');
+        const flagged = n.betweenness >= bridgeCut ? ' \u2726' : '';
+        li.innerHTML = `<div class="rank-row"><span class="rank-name">${escapeHtml(n.label)}${flagged}</span><span class="rank-meta">${n.betweenness.toFixed(1)}</span></div>`;
+        betweennessList.appendChild(li);
+      });
+    }
+  }
+
+  // ============================================================
+  // Detection controls: granularity slider + detach-busiest toggle
+  // ============================================================
+  function describeGranularity(g){
+    if (g < 0.75) return 'Broad';
+    if (g < 1.25) return 'Balanced';
+    if (g < 1.75) return 'Fine';
+    return 'Very fine';
+  }
+  function syncSettingsUI(){
+    granularitySlider.value = String(granularity);
+    granularityVal.textContent = describeGranularity(granularity);
+    hubToggle.setAttribute('aria-pressed', excludeTopNode ? 'true' : 'false');
+    hubToggleSub.textContent = excludeTopNode ? 'Busiest name kept ungrouped' : 'Keep every name grouped';
+  }
+
+  const recomputeDebounced = debounce(() => { updateGraph({ reheat: 0.35, refit: false }); persist(); }, 130);
+  granularitySlider.addEventListener('input', () => {
+    granularity = parseFloat(granularitySlider.value);
+    granularityVal.textContent = describeGranularity(granularity);
+    recomputeDebounced();
+  });
+  hubToggle.addEventListener('click', () => {
+    excludeTopNode = !excludeTopNode;
+    syncSettingsUI();
+    updateGraph({ reheat: 0.4, refit: false });
+    persist();
+  });
+
+  // ============================================================
+  // Save slots
+  // ============================================================
+  const PENCIL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+  const TRASH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
+  let renamingId = null, slotDeleteId = null;
+
+  function relTime(ts){
+    if (!ts) return '';
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 45) return 'just now';
+    const m = Math.floor(s / 60); if (m < 60) return m + 'm ago';
+    const h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
+    const d = Math.floor(h / 24); if (d < 7) return d + 'd ago';
+    return new Date(ts).toLocaleDateString();
+  }
+
+  function openSlotMenu(){ slotMenu.hidden = false; slotSwitcher.classList.add('open'); slotBtn.setAttribute('aria-expanded', 'true'); renderSlotList(); }
+  function closeSlotMenu(){ slotMenu.hidden = true; slotSwitcher.classList.remove('open'); slotBtn.setAttribute('aria-expanded', 'false'); renamingId = null; slotDeleteId = null; }
+  function toggleSlotMenu(){ slotMenu.hidden ? openSlotMenu() : closeSlotMenu(); }
+  function refreshSlotUI(){ slotName.textContent = activeSlotName(); if (!slotMenu.hidden) renderSlotList(); }
+
+  function afterSlotChange(){
+    staging.clear();
+    pendingDeleteId = null;
+    clearUndo();
+    syncSettingsUI();
+    setEmptyMessage();
+    renderStaging();
+    renderExisting();
+    updateStats();
+    updateGraph({ reheat: 0.9, refit: true });
+    refreshSlotUI();
+  }
+
+  function nextSlotName(){
+    const names = new Set(slotIndex.slots.map(s => s.name));
+    let i = slotIndex.slots.length + 1, name;
+    do { name = 'Network ' + i; i++; } while (names.has(name));
+    return name;
+  }
+
+  async function switchToSlot(id){
+    if (id === activeId) { closeSlotMenu(); return; }
+    await persist();
+    activeId = id; slotIndex.activeId = id; await saveIndex();
+    const payload = await loadSlotPayload(id) || { nodes: {}, edges: {}, groupsCount: 0 };
+    applyPayloadToState(payload);
+    afterSlotChange();
+    closeSlotMenu();
+  }
+
+  async function createSlot(){
+    await persist();
+    const id = genId();
+    const nm = nextSlotName();
+    slotIndex.slots.push({ id, name: nm, updatedAt: Date.now() });
+    await saveSlotPayload(id, { nodes: {}, edges: {}, groupsCount: 0, settings: { granularity: DEFAULT_GRANULARITY, excludeTopNode: false } });
+    activeId = id; slotIndex.activeId = id; await saveIndex();
+    applyPayloadToState({ nodes: {}, edges: {}, groupsCount: 0 });
+    afterSlotChange();
+    closeSlotMenu();
+    toast('New save created — this canvas is empty.', 'ok');
+  }
+
+  async function createSlotWithPayload(name, payload){
+    await persist();
+    const id = genId();
+    slotIndex.slots.push({ id, name, updatedAt: Date.now() });
+    await saveSlotPayload(id, payload);
+    activeId = id; slotIndex.activeId = id; await saveIndex();
+    applyPayloadToState(payload);
+    afterSlotChange();
+  }
+
+  function renameSlot(id, name){
+    const s = slotIndex.slots.find(x => x.id === id);
+    renamingId = null;
+    if (!s) { renderSlotList(); return; }
+    const clean = String(name || '').trim().slice(0, 40);
+    if (clean) s.name = clean;
+    saveIndex();
+    refreshSlotUI();
+  }
+
+  async function deleteSlot(id){
+    if (slotIndex.slots.length <= 1) { toast('Keep at least one save.', 'warn'); slotDeleteId = null; renderSlotList(); return; }
+    const wasActive = id === activeId;
+    slotIndex.slots = slotIndex.slots.filter(s => s.id !== id);
+    await storageDelete(slotKey(id));
+    slotDeleteId = null;
+    if (wasActive) {
+      activeId = slotIndex.slots[0].id; slotIndex.activeId = activeId;
+      const payload = await loadSlotPayload(activeId) || { nodes: {}, edges: {}, groupsCount: 0 };
+      applyPayloadToState(payload);
+      afterSlotChange();
+    }
+    await saveIndex();
+    refreshSlotUI();
+    toast('Save deleted.', 'ok');
+  }
+
+  function renderSlotList(){
+    slotList.innerHTML = '';
+    const slots = slotIndex.slots.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    slots.forEach(s => {
+      const li = document.createElement('li');
+      li.className = 'slot-row' + (s.id === activeId ? ' active' : '');
+
+      if (slotDeleteId === s.id) {
+        const wrap = document.createElement('div');
+        wrap.className = 'slot-del-confirm';
+        wrap.innerHTML = `<span class="sdc-text">Delete “${escapeHtml(s.name)}”?</span>`;
+        const yes = document.createElement('button');
+        yes.className = 'act-btn'; yes.type = 'button'; yes.textContent = 'Delete';
+        yes.style.borderColor = 'var(--danger)'; yes.style.color = 'var(--danger)';
+        yes.onclick = (e) => { e.stopPropagation(); deleteSlot(s.id); };
+        const no = document.createElement('button');
+        no.className = 'act-btn'; no.type = 'button'; no.textContent = 'Keep';
+        no.onclick = (e) => { e.stopPropagation(); slotDeleteId = null; renderSlotList(); };
+        wrap.appendChild(yes); wrap.appendChild(no);
+        li.appendChild(wrap);
+        slotList.appendChild(li);
+        return;
+      }
+
+      if (renamingId === s.id) {
+        const input = document.createElement('input');
+        input.className = 'slot-rename-input'; input.value = s.name; input.maxLength = 40;
+        input.onclick = (e) => e.stopPropagation();
+        input.onkeydown = (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); renameSlot(s.id, input.value); }
+          else if (e.key === 'Escape') { renamingId = null; renderSlotList(); }
+        };
+        input.onblur = () => { if (renamingId === s.id) renameSlot(s.id, input.value); };
+        li.appendChild(input);
+        slotList.appendChild(li);
+        setTimeout(() => { input.focus(); input.select(); }, 0);
+        return;
+      }
+
+      const pick = document.createElement('button');
+      pick.className = 'slot-pick'; pick.type = 'button';
+      const when = relTime(s.updatedAt);
+      pick.innerHTML = `<span class="sp-name">${escapeHtml(s.name)}</span><span class="sp-meta">${s.id === activeId ? 'Active now' : 'Saved'}${when ? ' · ' + when : ''}</span>`;
+      pick.onclick = () => switchToSlot(s.id);
+
+      const ren = document.createElement('button');
+      ren.className = 'slot-icon-btn'; ren.type = 'button'; ren.title = 'Rename'; ren.setAttribute('aria-label', 'Rename ' + s.name);
+      ren.innerHTML = PENCIL_SVG;
+      ren.onclick = (e) => { e.stopPropagation(); slotDeleteId = null; renamingId = s.id; renderSlotList(); };
+
+      const del = document.createElement('button');
+      del.className = 'slot-icon-btn danger'; del.type = 'button'; del.title = 'Delete'; del.setAttribute('aria-label', 'Delete ' + s.name);
+      del.innerHTML = TRASH_SVG;
+      del.onclick = (e) => { e.stopPropagation(); renamingId = null; slotDeleteId = s.id; renderSlotList(); };
+
+      li.appendChild(pick); li.appendChild(ren); li.appendChild(del);
+      slotList.appendChild(li);
+    });
+  }
+
+  slotBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleSlotMenu(); });
+  newSlotBtn.addEventListener('click', (e) => { e.stopPropagation(); createSlot(); });
+  document.addEventListener('click', (e) => {
+    if (slotMenu.hidden) return;
+    if (e.target.closest && e.target.closest('.slot-switcher')) return;
+    closeSlotMenu();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !slotMenu.hidden) closeSlotMenu(); });
+
+  // ---- Save network (manual save to the active slot) ----
+  saveNetBtn.addEventListener('click', async () => {
+    await persist();
+    refreshSlotUI();
+    saveNetBtn.classList.add('flash');
+    setTimeout(() => saveNetBtn.classList.remove('flash'), 1100);
+    toast('Saved to “' + activeSlotName() + '”.', 'ok');
+  });
+
+  // ============================================================
+  // Save image (PNG)
+  // ============================================================
+  function isIOS(){
+    const ua = navigator.userAgent || '';
+    return /iP(hone|od|ad)/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function slugify(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+  function escapeXml(s){ return String(s).replace(/[<>&'"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c])); }
+
+  // Rebuild a standalone, self-contained SVG of the whole network (independent
+  // of the current pan/zoom) with a title bar, so the PNG reads on its own.
+  function buildExportSVG(){
+    const pts = Array.from(nodesMap.values()).filter(n => typeof n.x === 'number');
+    if (!pts.length) return null;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    pts.forEach(n => {
+      const r = radiusScale(n.count) + 26;
+      minX = Math.min(minX, n.x - r); maxX = Math.max(maxX, n.x + r);
+      minY = Math.min(minY, n.y - r); maxY = Math.max(maxY, n.y + r);
+    });
+    const pad = 52, headerH = 60, footerH = 34;
+    const contentW = Math.max(1, maxX - minX), contentH = Math.max(1, maxY - minY);
+    const w = Math.round(contentW + pad * 2);
+    const h = Math.round(headerH + pad + contentH + pad + footerH);
+    const gx = pad - minX, gy = headerH + pad - minY;
+
+    const inner = g.node().cloneNode(true);
+    inner.setAttribute('transform', `translate(${gx},${gy})`);
+    const styleRoot = getComputedStyle(document.documentElement);
+    const resolveVars = (str) => str.replace(/var\((--[a-z0-9-]+)\)/gi, (m, name) => (styleRoot.getPropertyValue(name).trim() || m));
+    inner.querySelectorAll('*').forEach(el => {
+      ['stroke', 'fill'].forEach(attr => {
+        const v = el.getAttribute(attr);
+        if (v && v.indexOf('var(') >= 0) el.setAttribute(attr, resolveVars(v));
+      });
+    });
+    const innerXML = new XMLSerializer().serializeToString(inner);
+
+    const bg = styleRoot.getPropertyValue('--bg-deep').trim() || '#0B1120';
+    const title = activeSlotName();
+    const meta = `${nodesMap.size} names · ${linksMap.size} connections · ${lastAnalytics.communityCount} group${lastAnalytics.communityCount === 1 ? '' : 's'}`;
+    const stamp = new Date().toLocaleDateString();
+
+    const svg =
+`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+<style>
+ text{font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;}
+ .node-label{fill:#14192C;font-weight:600;}
+ .hdr-eyebrow{fill:#5C6580;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;letter-spacing:1.4px;}
+ .hdr-title{fill:#EDEFF7;font-family:'Space Grotesk',system-ui,sans-serif;font-weight:600;font-size:22px;}
+ .foot{fill:#5C6580;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;}
+</style>
+<rect x="0" y="0" width="${w}" height="${h}" fill="${bg}"/>
+<text class="hdr-eyebrow" x="${pad}" y="24">CONNECTION MAP</text>
+<text class="hdr-title" x="${pad}" y="48">${escapeXml(title)}</text>
+${innerXML}
+<text class="foot" x="${pad}" y="${h - 14}">${escapeXml(meta)} · ${escapeXml(stamp)} · GraphNet</text>
+</svg>`;
+    return { svg, w, h };
+  }
+
+  function networkToPngBlob(scale){
+    scale = scale || 2;
+    return new Promise((resolve, reject) => {
+      const built = buildExportSVG();
+      if (!built) { reject(new Error('empty')); return; }
+      const url = URL.createObjectURL(new Blob([built.svg], { type: 'image/svg+xml;charset=utf-8' }));
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(built.w * scale);
+          canvas.height = Math.round(built.h * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.setTransform(scale, 0, 0, scale, 0, 0);
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          canvas.toBlob(b => { b ? resolve(b) : reject(new Error('toBlob failed')); }, 'image/png');
+        } catch (err) { URL.revokeObjectURL(url); reject(err); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('svg render failed')); };
+      img.src = url;
+    });
+  }
+
+  function downloadBlob(blob, fname){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  async function saveImage(){
+    if (!nodesMap.size) { toast('Log a group first — there is nothing to export yet.', 'warn'); return; }
+    saveImgBtn.disabled = true;
+    try {
+      const blob = await networkToPngBlob(2);
+      const fname = (slugify(activeSlotName()) || 'network') + '-' + new Date().toISOString().slice(0, 10) + '.png';
+      const file = new File([blob], fname, { type: 'image/png' });
+      // iOS: hand the file to the native share sheet (Save to Photos / Files / send).
+      if (isIOS() && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: activeSlotName() }); return; }
+        catch (err) { if (err && err.name === 'AbortError') return; /* otherwise fall through to download */ }
+      }
+      downloadBlob(blob, fname);
+      toast('Image saved.', 'ok');
+    } catch (err) {
+      console.error(err);
+      toast('Could not render the image on this device.', 'warn');
+    } finally {
+      syncActionAvailability();
+    }
+  }
+  saveImgBtn.addEventListener('click', saveImage);
+
+  // ============================================================
+  // Share (link that reconstructs the network in a new save)
+  // ============================================================
+  function b64uEncode(str){ return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function b64uDecode(s){ s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return decodeURIComponent(escape(atob(s))); }
+
+  function encodeGraph(){
+    const nodes = Array.from(nodesMap.values());
+    const idx = new Map(); nodes.forEach((n, i) => idx.set(n.id, i));
+    const N = nodes.map(n => [n.label, n.count]);
+    const E = Array.from(linksMap.values())
+      .map(l => [idx.get(l.a), idx.get(l.b), l.weight])
+      .filter(e => e[0] != null && e[1] != null);
+    return b64uEncode(JSON.stringify({ v: 2, g: groupsCount, n: N, e: E, s: [Number(granularity.toFixed(2)), excludeTopNode ? 1 : 0] }));
+  }
+  function decodeGraph(enc){
+    const obj = JSON.parse(b64uDecode(enc));
+    if (!obj || !Array.isArray(obj.n)) throw new Error('bad payload');
+    const ids = obj.n.map(([label]) => canon(String(label)));
+    const nodes = {}, edges = {};
+    obj.n.forEach(([label, count], i) => { if (typeof label === 'string' && ids[i]) nodes[ids[i]] = { label, count: Number(count) || 1 }; });
+    (obj.e || []).forEach(([ai, bi, w]) => {
+      const a = ids[ai], b = ids[bi];
+      if (!a || !b || a === b) return;
+      const pair = [a, b].sort();
+      edges[pair[0] + '|||' + pair[1]] = { a: pair[0], b: pair[1], weight: Number(w) || 1 };
+    });
+    const settings = Array.isArray(obj.s)
+      ? { granularity: Number(obj.s[0]) || DEFAULT_GRANULARITY, excludeTopNode: !!obj.s[1] }
+      : undefined;
+    return { nodes, edges, groupsCount: Number(obj.g) || 0, settings };
+  }
+  function buildShareLink(){ return location.origin + location.pathname + '#net=' + encodeGraph(); }
+
+  function showShareFallback(link){
+    shareLinkInput.value = link;
+    shareFallback.style.display = '';
+    shareLinkInput.focus(); shareLinkInput.select();
+  }
+
+  async function shareNetwork(){
+    if (!nodesMap.size) { toast('Log a group first — there is nothing to share yet.', 'warn'); return; }
+    const link = buildShareLink();
+    if (link.length > 14000) { toast('This network is too large to share as a link — use Export data instead.', 'warn'); return; }
+    const shareData = { title: activeSlotName() + ' · GraphNet', text: 'A network I mapped with GraphNet', url: link };
+    if (navigator.share) {
+      try { await navigator.share(shareData); return; }
+      catch (err) { if (err && err.name === 'AbortError') return; /* otherwise fall through */ }
+    }
+    try { await navigator.clipboard.writeText(link); toast('Share link copied to your clipboard.', 'ok'); return; }
+    catch (err) { /* clipboard blocked — show the manual copy box */ }
+    showShareFallback(link);
+  }
+  shareBtn.addEventListener('click', shareNetwork);
+
+  copyShareBtn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(shareLinkInput.value); toast('Link copied.', 'ok'); }
+    catch (err) {
+      shareLinkInput.focus(); shareLinkInput.select();
+      let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+      toast(ok ? 'Link copied.' : 'Select the link and copy it manually.', ok ? 'ok' : 'warn');
+    }
+  });
+  closeShareBtn.addEventListener('click', () => { shareFallback.style.display = 'none'; });
+
+  async function importFromHash(){
+    const m = (location.hash || '').match(/[#&]net=([^&]+)/);
+    if (!m) return false;
+    let payload = null;
+    try { payload = decodeGraph(m[1]); } catch (err) { return false; }
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
+    if (!payload || !Object.keys(payload.nodes).length) return false;
+    await createSlotWithPayload('Shared network', payload);
+    toast('Loaded a shared network into a new save.', 'ok');
+    return true;
+  }
+
+  function syncActionAvailability(){
+    const empty = nodesMap.size === 0;
+    saveImgBtn.disabled = empty;
+    shareBtn.disabled = empty;
+  }
+
+  // ---------- init ----------
+  (async function init(){
+    initGraph();
+    await loadData();
+    storageStatus.textContent = describeStorageBackend();
+    setEmptyMessage();
+    syncSettingsUI();
+    refreshSlotUI();
+    renderStaging();
+    renderExisting();
+    updateGraph();
+    await importFromHash();
+  })();
+})();
+</script>
+</body>
+</html>
